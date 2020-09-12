@@ -175,8 +175,6 @@ namespace CodeNodeScript
         {
             IsNeedUpdateUI = true;
             var tex = CodeBox.Text;
-            // todo 頭#rならリファレンスと解釈してreset
-
             Eval.Eval( tex );
             Resultlistbox.Text = "";
             var resbuilder = new StringBuilder();

@@ -79,13 +79,13 @@
     let errStream = new StringWriter(sbErr)
     
     // コマンドライン引数を組み立てて、FSIセッションを開始する
-    let argv = [| "C:\\fsi.exe" |]
+    let argv = [| "C:\\fsi.exe" |]//; "--noninteractive"|]
     let allArgs = Array.append argv [||]
-      //[|@"-r:C:\hogefuga\.nuget\packages\fsharp.compiler.service\35.0.0\lib\net461\FSharp.Compiler.Service.dll"|]//[|"--noninteractive"|]
+      //[|@"-r:C:\hogefuga\.nuget\packages\fsharp.compiler.service\35.0.0\lib\net461\FSharp.Compiler.Service.dll"|]//
     
     let fsiConfig = FsiEvaluationSession.GetDefaultConfiguration()
     let mutable fsi = None
-    let reset() = fsi <- Some <| FsiEvaluationSession.Create(fsiConfig, allArgs, inStream, outStream, errStream)
+    let reset ()= fsi <- Some <| FsiEvaluationSession.Create(fsiConfig, allArgs, inStream, outStream, errStream)
 
     // eval
     let eval text =
@@ -93,10 +93,19 @@
         match fsi with
         |Some x-> x
         |None->reset();fsi.Value
-      let res,errList = fsiIn.EvalExpressionNonThrowing(text)
-      match res with
+      let res,errList = 
+        // こちらは#r対応しない
+        //fsiIn.EvalExpressionNonThrowing(text)
+        fsiIn.EvalInteractionNonThrowing(text)
+      let result,err =
+        match res with
         | Choice1Of2 valueOpt -> Ok valueOpt,errList
         | Choice2Of2 (exn:exn) -> Error exn,errList
+      // コンパイルエラーになってもOkになる
+      if err.Length > 0 then
+        Error null,err
+      else
+        result,err
 
     let compile text =
       let scs = FSharpChecker.Create()
@@ -109,16 +118,25 @@
       errors,exitCode,dynAssembly
 
     open FSharp.Compiler.Interactive
+    open System.Text.Json
 
     let extractVal (r:Shell.FsiValue)=
       let t = r.ReflectionValue
-      //t.IsSubclassOf(typeof<System.Collections.IEnumerable>)
+      let isType = 
+        match t with
+        | :? System.Type -> true
+        | _-> false
       match t with
       | :? System.String as v ->
         [v]
       | :? System.Collections.IEnumerable  as v ->
         [for i in v -> i.ToString()]
-      | t->
+        // 一部のメソッド (GetType)で IsGenericParameterがtrueでないと怒られる
+      | t when not isType->
+        //[ JsonConvert.SerializeObject(t).ToString()]
+        // こちらのほうが詳しいクラス情報もらえるので使用
+        [JsonSerializer.Serialize(t)]
+      | t ->
         [t.ToString()]
     type EvalResult() =
       let mutable err = [||]
@@ -141,7 +159,10 @@
         match except with
         |Some ex->
           result <- None
-          ex.ToString()
+          // コンパイルエラーになってもOKの時null
+          if(ex <> null) then
+            ex.ToString()
+          else ""
         |None   -> ""
       member t.Result =
         match result with
