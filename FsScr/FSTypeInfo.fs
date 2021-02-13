@@ -43,12 +43,12 @@
     let toolTip input line col lineTxt tokenList tokenTag (userOp : string option) =
       let getTool (v:FSharpCheckFileResults) =
         if userOp.IsSome then
-          v.GetToolTipText(line , col , lineTxt , tokenList , tokenTag , userOp.Value)
+          v.GetToolTipText(line , col , lineTxt , tokenList , tokenTag )//, userOp.Value)
         else 
           v.GetToolTipText(line , col , lineTxt , tokenList , tokenTag )
       async{
         let! res,fileRes = checkResult input
-        let! toolStr = 
+        let toolStr = 
           match res with
           | Some v -> getTool v
           | None   -> failwith "check Fail"
@@ -61,9 +61,9 @@
       let hasCheck x = false
       async{
         let! res,fileRes = checkResult input
-        let! declList = 
+        let declList = 
           match res with
-          | Some v -> v.GetDeclarationListInfo( (Some fileRes) , line , lineText , PartialLongName.Empty row,(fun () -> []) , hasCheck) 
+          | Some v -> v.GetDeclarationListInfo( (Some fileRes) , line , lineText , PartialLongName.Empty row,(fun () -> [])) //, hasCheck) 
           | None   -> failwith "check Fail"
         return declList
       }
@@ -118,7 +118,7 @@
       errors,exitCode,dynAssembly
 
     open FSharp.Compiler.Interactive
-    open System.Text.Json
+    //open System.Text.Json
 
     let extractVal (r:Shell.FsiValue)=
       let t = r.ReflectionValue
@@ -132,10 +132,10 @@
       | :? System.Collections.IEnumerable  as v ->
         [for i in v -> i.ToString()]
         // 一部のメソッド (GetType)で IsGenericParameterがtrueでないと怒られる
-      | t when not isType->
+      //| t when not isType->
         //[ JsonConvert.SerializeObject(t).ToString()]
-        // こちらのほうが詳しいクラス情報もらえるので使用
-        [JsonSerializer.Serialize(t)]
+        // こちらのほうが詳しいクラス情報もらえるので使用 (core2.0 = Unity)では使用できない
+        //[JsonSerializer.Serialize(t)]
       | t ->
         [t.ToString()]
     type EvalResult() =
